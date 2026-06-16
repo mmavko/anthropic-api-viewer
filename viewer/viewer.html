@@ -230,8 +230,8 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 5px;
-      overflow: hidden;
       margin-bottom: 14px;
+      /* overflow:hidden intentionally omitted — it would break position:sticky on child headers */
     }
 
     .card-head {
@@ -241,6 +241,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      border-radius: 5px 5px 0 0;
     }
 
     .card-title {
@@ -383,8 +384,8 @@
     .collapsible {
       border: 1px solid var(--border);
       border-radius: 3px;
-      overflow: hidden;
       margin-bottom: 6px;
+      /* overflow:hidden omitted — would break position:sticky on .collapsible-hd */
     }
 
     .collapsible-hd {
@@ -398,6 +399,10 @@
       font-family: var(--font-ui);
       font-size: 11px;
       color: var(--text-2);
+      position: sticky;
+      top: -16px; /* -padding-top of .rendered-scroll; sticky top:0 is the padding edge, not border edge */
+      z-index: 10;
+      border-radius: 3px 3px 0 0;
     }
 
     .collapsible-hd:hover { background: var(--border); }
@@ -431,7 +436,6 @@
 
     .msg-card {
       border-radius: 3px;
-      overflow: hidden;
       border: 1px solid var(--border);
     }
 
@@ -441,6 +445,12 @@
       align-items: center;
       gap: 8px;
       border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: -16px; /* -padding-top of .rendered-scroll; sticky top:0 is the padding edge, not border edge */
+      z-index: 10;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 3px 3px 0 0;
     }
 
     .msg-head.user      { background: var(--user-bg); border-color: var(--user-border); }
@@ -457,6 +467,11 @@
     .role-tag.user      { color: var(--user-text); }
     .role-tag.assistant { color: var(--asst-text); }
 
+    .msg-card .msg-body      { display: none; }
+    .msg-card.open .msg-body { display: block; }
+    .msg-card.open .chev     { transform: rotate(90deg); }
+    .msg-card:not(.open) .msg-head { border-bottom: none; }
+
     .msg-body {
       padding: 10px;
       font-family: var(--font-ui);
@@ -465,13 +480,8 @@
       white-space: pre-wrap;
       word-break: break-word;
       color: var(--text);
-      max-height: 320px;
-      overflow-y: auto;
       background: var(--surface);
     }
-
-    .msg-body::-webkit-scrollbar { width: 4px; }
-    .msg-body::-webkit-scrollbar-thumb { background: var(--border); }
 
     /* ── Status code ── */
     .status-row {
@@ -754,7 +764,15 @@ function validate() {
 // ── HAR helpers ──────────────────────────────────────────────────────────────
 function decode(content) {
   const t = content?.text || '';
-  if (content?.encoding === 'base64') { try { return atob(t); } catch { return t; } }
+  if (content?.encoding === 'base64') {
+    try {
+      // atob() produces a Latin-1 binary string, not UTF-8 — piping through
+      // TextDecoder is required or multi-byte chars (em dash, quotes…) corrupt.
+      const binary = atob(t);
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch { return t; }
+  }
   return t;
 }
 
@@ -867,7 +885,7 @@ function renderRequest(req, body) {
         const preview = (blk.text || '').slice(0, 72).replace(/\n/g,' ');
         const cc = blk.cache_control ? ` · ${blk.cache_control.type}${blk.cache_control.ttl ? '/' + blk.cache_control.ttl : ''}` : '';
         bodyHtml += `
-          <div class="collapsible" id="sys${i}">
+          <div class="collapsible open" id="sys${i}">
             <div class="collapsible-hd" onclick="tog('sys${i}')">
               <span class="chev">▶</span>
               <span>Block ${i+1}${e(cc)} — ${e(preview)}${blk.text?.length > 72 ? '…' : ''}</span>
@@ -879,16 +897,20 @@ function renderRequest(req, body) {
 
     if (body.messages?.length) {
       bodyHtml += `<div class="sublabel gap-top">Messages</div><div class="msg-list">`;
-      body.messages.forEach(msg => {
+      body.messages.forEach((msg, mi) => {
         const role = msg.role || 'user';
         const text = typeof msg.content === 'string'
           ? msg.content
           : Array.isArray(msg.content)
             ? msg.content.map(b => b.text || b.thinking || JSON.stringify(b)).join('\n')
             : JSON.stringify(msg.content, null, 2);
+        const mid = `msg-${Date.now()}-${mi}`;
         bodyHtml += `
-          <div class="msg-card">
-            <div class="msg-head ${e(role)}"><span class="role-tag ${e(role)}">${e(role)}</span></div>
+          <div class="msg-card open" id="${mid}">
+            <div class="msg-head ${e(role)}" onclick="tog('${mid}')">
+              <span class="chev">▶</span>
+              <span class="role-tag ${e(role)}">${e(role)}</span>
+            </div>
             <div class="msg-body">${e(text)}</div>
           </div>`;
       });
