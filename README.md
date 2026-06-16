@@ -4,6 +4,8 @@ A single-file HTML tool for inspecting raw Anthropic `/v1/messages` API interact
 
 **Live:** https://mmavko.github.io/anthropic-api-viewer/
 
+![Screenshot](docs/screenshot.png)
+
 ## Workflow
 
 1. In Proxyman, select a request to `api.anthropic.com` and export it as HAR (**File → Export → HAR**)
