@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anthropic API Viewer</title>
+  <style>
+    :root {
+      --bg:            #F2F1ED;
+      --surface:       #FFFFFF;
+      --surface-2:     #F7F6F3;
+      --border:        #E0DED8;
+      --border-strong: #C4C1BA;
+      --text:          #1A1917;
+      --text-2:        #57554E;
+      --text-3:        #9C9A93;
+      --accent:        #1746A2;
+      --accent-light:  #EEF3FF;
+      --success:       #1A7A4A;
+      --success-light: #EDFAF3;
+      --error:         #C0202A;
+      --error-light:   #FFF0F1;
+      --warning:       #B45309;
+      --warning-light: #FFF8EC;
+      --user-bg:       #EEF3FF;
+      --user-border:   #BFD0F7;
+      --user-text:     #1746A2;
+      --asst-bg:       #EDFAF3;
+      --asst-border:   #A8E6C5;
+      --asst-text:     #1A7A4A;
+      --font-ui:       'Menlo', 'SF Mono', 'Monaco', 'Consolas', monospace;
+      --font-label:    -apple-system, 'Helvetica Neue', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-label);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      height: 42px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      padding: 0 16px;
+      flex-shrink: 0;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-shrink: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .brand-mark span {
+      display: block;
+      background: var(--text);
+      border-radius: 1px;
+    }
+
+    .brand-mark span:nth-child(2),
+    .brand-mark span:nth-child(3) {
+      opacity: 0.35;
+    }
+
+    .brand-name {
+      font-family: var(--font-label);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .header-sep {
+      width: 1px;
+      background: var(--border);
+      margin: 10px 0;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      align-items: stretch;
+      gap: 2px;
+    }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px;
+      font-family: var(--font-label);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.12s;
+      user-select: none;
+    }
+
+    .tab:hover:not(.disabled) { color: var(--text-2); }
+
+    .tab.active {
+      color: var(--text);
+      border-bottom-color: var(--text);
+    }
+
+    .tab.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .tab-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .tab-pip.on { opacity: 1; }
+
+    /* ── Panels ── */
+    main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    .panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+    .panel.active { display: flex; }
+
+    /* ── Source panel ── */
+    .source-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .source-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .s-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .s-dot.ok    { background: var(--success); }
+    .s-dot.error { background: var(--error); }
+
+    .s-msg {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-3);
+      transition: color 0.15s;
+    }
+    .s-msg.ok    { color: var(--success); }
+    .s-msg.error { color: var(--error); }
+
+    .source-ta {
+      flex: 1;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--surface);
+      padding: 12px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      line-height: 1.65;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .source-ta:focus          { border-color: var(--accent); }
+    .source-ta.ok             { border-color: var(--success); }
+    .source-ta.error          { border-color: var(--error); }
+    .source-ta.drag-over      { border-color: var(--accent); background: var(--accent-light); }
+    .source-ta::placeholder   { color: var(--text-3); }
+
+    /* ── Rendered panel ── */
+    .rendered-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 32px;
+    }
+
+    .rendered-scroll::-webkit-scrollbar { width: 5px; }
+    .rendered-scroll::-webkit-scrollbar-track { background: transparent; }
+    .rendered-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      margin-bottom: 14px;
+      /* overflow:hidden intentionally omitted — it would break position:sticky on child headers */
+    }
+
+    .card-head {
+      padding: 8px 14px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 5px 5px 0 0;
+    }
+
+    .card-title {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+
+    .card-body { padding: 14px; }
+
+    /* ── URL row ── */
+    .url-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .method-pill {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: var(--accent);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .url-val {
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      color: var(--text);
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    /* ── Sub-labels ── */
+    .sublabel {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+
+    .sublabel + * { /* no extra margin needed */ }
+
+    .gap-top { margin-top: 16px; }
+
+    /* ── KV table ── */
+    table.kv {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.kv tr + tr td { border-top: 1px solid var(--border); }
+
+    table.kv td {
+      padding: 5px 0;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      vertical-align: top;
+    }
+
+    table.kv td:first-child {
+      width: 230px;
+      padding-right: 14px;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+
+    table.kv td:last-child {
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    /* ── Field grid ── */
+    .field-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .field-tile {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 7px 10px;
+      min-width: 140px;
+    }
+
+    .field-tile-label {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+
+    .field-tile-val {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .badge-green  { background: var(--success-light); color: var(--success); }
+    .badge-blue   { background: var(--accent-light);  color: var(--accent);  }
+    .badge-amber  { background: var(--warning-light); color: var(--warning); }
+    .badge-gray   { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); }
+    .badge-red    { background: var(--error-light); color: var(--error); }
+
+    /* ── Collapsible ── */
+    .collapsible {
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      margin-bottom: 6px;
+      /* overflow:hidden omitted — would break position:sticky on .collapsible-hd */
+    }
+
+    .collapsible-hd {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      background: var(--surface-2);
+      cursor: pointer;
+      user-select: none;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-2);
+      position: sticky;
+      top: -16px; /* -padding-top of .rendered-scroll; sticky top:0 is the padding edge, not border edge */
+      z-index: 10;
+      border-radius: 3px 3px 0 0;
+    }
+
+    .collapsible-hd:hover { background: var(--border); }
+
+    .chev {
+      font-size: 8px;
+      color: var(--text-3);
+      transition: transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .collapsible.open .chev { transform: rotate(90deg); }
+
+    .collapsible-bd {
+      display: none;
+      padding: 10px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .collapsible.open .collapsible-bd { display: block; }
+
+    /* ── Message cards ── */
+    .msg-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .msg-card {
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+
+    .msg-head {
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: -16px; /* -padding-top of .rendered-scroll; sticky top:0 is the padding edge, not border edge */
+      z-index: 10;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 3px 3px 0 0;
+    }
+
+    .msg-head.user      { background: var(--user-bg); border-color: var(--user-border); }
+    .msg-head.assistant { background: var(--asst-bg); border-color: var(--asst-border); }
+
+    .role-tag {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .role-tag.user      { color: var(--user-text); }
+    .role-tag.assistant { color: var(--asst-text); }
+
+    .msg-card .msg-body      { display: none; }
+    .msg-card.open .msg-body { display: block; }
+    .msg-card.open .chev     { transform: rotate(90deg); }
+    .msg-card:not(.open) .msg-head { border-bottom: none; }
+
+    .msg-body {
+      padding: 10px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    /* ── Status code ── */
+    .status-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .status-code {
+      font-family: var(--font-ui);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--success);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .status-label {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    /* ── Rate limit bars ── */
+    .rl-grid { display: flex; flex-direction: column; gap: 7px; }
+
+    .rl-row {
+      display: grid;
+      grid-template-columns: 62px 1fr 44px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .rl-lbl {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-3);
+      text-align: right;
+    }
+
+    .rl-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .rl-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .rl-fill.warn   { background: var(--warning); }
+    .rl-fill.danger { background: var(--error); }
+
+    .rl-pct {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-2);
+      text-align: right;
+    }
+
+    /* ── Usage grid ── */
+    .usage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    .usage-tile {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+    }
+
+    .usage-tile-lbl {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+
+    .usage-tile-val {
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    /* ── Content blocks ── */
+    .cb {
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .cb.thinking {
+      border-color: #FCD34D;
+    }
+
+    .cb-head {
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cb.thinking .cb-head {
+      background: #FFFBEB;
+      border-color: #FCD34D;
+    }
+
+    .cb-type {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+
+    .cb.thinking .cb-type { color: #92400E; }
+
+    .cb-text {
+      padding: 10px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    /* ── Divider ── */
+    hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    /* ── Misc ── */
+    .mono { font-family: var(--font-ui); font-size: 11.5px; }
+    .muted { color: var(--text-3); font-style: italic; font-size: 11px; }
+
+    .entry-sep {
+      font-family: var(--font-label);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .entry-sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Markdown-rendered prose ── */
+    .md-content {
+      white-space: normal;
+      font-family: var(--font-label);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .md-content p { margin: 0 0 0.6em; }
+    .md-content p:last-child { margin-bottom: 0; }
+    .md-content h1, .md-content h2, .md-content h3 {
+      font-family: var(--font-label);
+      font-weight: 700;
+      margin: 0.9em 0 0.3em;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .md-content h1 { font-size: 15px; }
+    .md-content h2 { font-size: 13.5px; }
+    .md-content h3 { font-size: 12.5px; }
+    .md-content h1:first-child,
+    .md-content h2:first-child,
+    .md-content h3:first-child { margin-top: 0; }
+    .md-content ul, .md-content ol { margin: 0 0 0.6em 1.4em; padding: 0; }
+    .md-content li { margin-bottom: 0.15em; }
+    .md-content li:last-child { margin-bottom: 0; }
+    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 0.7em 0; }
+    .md-content pre {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+      margin: 0 0 0.6em;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .md-content pre:last-child { margin-bottom: 0; }
+    .md-content pre code {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text);
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .md-code {
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 1px 4px;
+      color: var(--text);
+    }
+    .xml-tag {
+      font-family: var(--font-ui);
+      font-size: 0.9em;
+      color: var(--warning);
+      background: var(--warning-light);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <span class="brand-name">API Viewer</span>
+  </div>
+  <div class="header-sep"></div>
+  <div class="tabs">
+    <div class="tab active" id="tab-source" onclick="switchTab('source')">Source</div>
+    <div class="tab disabled" id="tab-rendered" onclick="switchTab('rendered')">
+      <span class="tab-pip" id="pip"></span>
+      Rendered
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Source -->
+  <div class="panel active" id="panel-source">
+    <div class="source-wrap">
+      <div class="source-bar">
+        <div class="s-dot" id="sdot"></div>
+        <span class="s-msg" id="smsg">Paste HAR content below</span>
+      </div>
+      <textarea
+        class="source-ta"
+        id="sta"
+        placeholder='{"log": {"entries": [...]}}'
+        spellcheck="false"
+        autocomplete="off"
+        oninput="onInput()"
+      ></textarea>
+    </div>
+  </div>
+
+  <!-- Rendered -->
+  <div class="panel" id="panel-rendered">
+    <div class="rendered-scroll" id="rendered"></div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+// ── State ───────────────────────────────────────────────────────────────────
+let har = null;
+let debTimer = null;
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  if (name === 'rendered' && !har) return;
+  ['source', 'rendered'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+    document.getElementById(`panel-${t}`).classList.toggle('active', t === name);
+  });
+  if (name === 'rendered') renderHar(har);
+}
+
+// ── Source / validation ─────────────────────────────────────────────────────
+function onInput() {
+  clearTimeout(debTimer);
+  debTimer = setTimeout(validate, 300);
+}
+
+function setStatus(state, msg) {
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('smsg');
+  const ta  = document.getElementById('sta');
+  const rt  = document.getElementById('tab-rendered');
+  const pip = document.getElementById('pip');
+
+  dot.className = 's-dot' + (state ? ' ' + state : '');
+  txt.className = 's-msg' + (state ? ' ' + state : '');
+  txt.textContent = msg;
+  ta.className = 'source-ta' + (state ? ' ' + state : '');
+  rt.classList.toggle('disabled', state !== 'ok');
+  pip.classList.toggle('on', state === 'ok');
+}
+
+function validate() {
+  const raw = document.getElementById('sta').value.trim();
+  if (!raw) { har = null; setStatus('', 'Paste HAR content below'); return; }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    har = null;
+    setStatus('error', 'JSON parse error — ' + (e.message || 'invalid JSON'));
+    return;
+  }
+
+  if (!parsed.log)                          { har = null; setStatus('error', 'Missing: log'); return; }
+  if (!Array.isArray(parsed.log.entries))   { har = null; setStatus('error', 'Missing: log.entries[]'); return; }
+
+  const n = parsed.log.entries.filter(e => e.request?.url?.includes('/v1/messages')).length;
+  if (n === 0) { har = null; setStatus('error', 'No /v1/messages entries found'); return; }
+
+  har = parsed;
+  setStatus('ok', `Valid · ${n} entr${n === 1 ? 'y' : 'ies'}`);
+}
+
+// ── HAR helpers ──────────────────────────────────────────────────────────────
+function decode(content) {
+  const t = content?.text || '';
+  if (content?.encoding === 'base64') {
+    try {
+      // atob() produces a Latin-1 binary string, not UTF-8 — piping through
+      // TextDecoder is required or multi-byte chars (em dash, quotes…) corrupt.
+      const binary = atob(t);
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch { return t; }
+  }
+  return t;
+}
+
+function assembleStream(sse) {
+  const evts = [];
+  for (const line of sse.split('\n')) {
+    const l = line.trim();
+    if (l.startsWith('data:')) {
+      const d = l.slice(5).trim();
+      if (d && d !== '[DONE]') { try { evts.push(JSON.parse(d)); } catch {} }
+    }
+  }
+
+  let msg = null;
+  const blocks = {};
+
+  for (const e of evts) {
+    if (e.type === 'message_start') {
+      msg = { ...e.message, content: [] };
+    } else if (e.type === 'content_block_start') {
+      blocks[e.index] = { ...e.content_block };
+    } else if (e.type === 'content_block_delta') {
+      const b = blocks[e.index] ??= { type: 'text', text: '' };
+      if (e.delta.type === 'text_delta')       b.text     = (b.text     || '') + e.delta.text;
+      if (e.delta.type === 'thinking_delta')   b.thinking = (b.thinking || '') + e.delta.thinking;
+      if (e.delta.type === 'input_json_delta') b.input    = (b.input    || '') + (e.delta.partial_json || '');
+    } else if (e.type === 'message_delta' && msg) {
+      Object.assign(msg, e.delta || {});
+      if (e.usage)              Object.assign(msg.usage ??= {}, e.usage);
+      if (e.context_management) msg.context_management = e.context_management;
+    }
+  }
+
+  if (msg) msg.content = Object.keys(blocks).sort((a, b) => +a - +b).map(k => blocks[k]);
+  return msg;
+}
+
+function extractEntry(entry) {
+  const req  = entry.request;
+  let reqBody = null;
+  try { if (req.postData?.text) reqBody = JSON.parse(req.postData.text); } catch {}
+
+  const res     = entry.response;
+  const content = res.content || {};
+  const mime    = content.mimeType || '';
+  const text    = decode(content);
+  let resBody   = null;
+  let streaming = false;
+
+  if (mime.includes('text/event-stream')) {
+    streaming = true;
+    resBody   = assembleStream(text);
+  } else if (text) {
+    try { resBody = JSON.parse(text); } catch {}
+  }
+
+  return { req, reqBody, res, resBody, streaming };
+}
+
+function hdr(headers, name) {
+  const n = name.toLowerCase();
+  return (headers || []).find(h => h.name.toLowerCase() === n)?.value ?? null;
+}
+
+// ── Markdown renderer ────────────────────────────────────────────────────────
+// HTML-escape first so custom XML tags like <tool_description> appear as
+// literal text rather than being hidden by the browser as unknown elements.
+function mdEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Wraps escaped XML-like tags (&lt;tag&gt;) in a highlight span.
+// Must run on already-HTML-escaped text so custom tags like <tool_description>
+// are &lt;tag&gt; and won't be confused with actual generated HTML elements.
+function highlightXml(s) {
+  return s.replace(/(&lt;\/?[a-zA-Z][a-zA-Z0-9_\-]*\s*&gt;)/g,
+    '<span class="xml-tag">$1</span>');
+}
+
+function mdInline(s) {
+  // s is already HTML-escaped; apply inline markdown transforms then XML highlighting
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+  s = s.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>');
+  return highlightXml(s);
+}
+
+function renderMd(raw) {
+  const lines = String(raw ?? '').split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const ln = lines[i];
+    // Fenced code block
+    if (/^```/.test(ln)) {
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) codeLines.push(lines[i++]);
+      i++;
+      out.push(`<pre><code>${mdEsc(codeLines.join('\n'))}</code></pre>`);
+      continue;
+    }
+    // Heading
+    const hm = ln.match(/^(#{1,3}) (.+)/);
+    if (hm) {
+      const n = hm[1].length;
+      out.push(`<h${n}>${mdInline(mdEsc(hm[2].trim()))}</h${n}>`);
+      i++; continue;
+    }
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(ln.trim())) { out.push('<hr>'); i++; continue; }
+    // Unordered list
+    if (/^[-*+] /.test(ln)) {
+      out.push('<ul>');
+      while (i < lines.length && /^[-*+] /.test(lines[i]))
+        out.push(`<li>${mdInline(mdEsc(lines[i++].replace(/^[-*+] /, '')))}</li>`);
+      out.push('</ul>');
+      continue;
+    }
+    // Ordered list
+    if (/^\d+\. /.test(ln)) {
+      out.push('<ol>');
+      while (i < lines.length && /^\d+\. /.test(lines[i]))
+        out.push(`<li>${mdInline(mdEsc(lines[i++].replace(/^\d+\. /, '')))}</li>`);
+      out.push('</ol>');
+      continue;
+    }
+    // Blank line
+    if (!ln.trim()) { i++; continue; }
+    // Paragraph — collect until next block-level element or blank line
+    const pLines = [];
+    while (i < lines.length) {
+      const l = lines[i];
+      if (!l.trim() || /^```/.test(l) || /^#{1,3} /.test(l) ||
+          /^[-*+] /.test(l) || /^\d+\. /.test(l) || /^[-*_]{3,}$/.test(l.trim())) break;
+      pLines.push(l); i++;
+    }
+    if (pLines.length) out.push(`<p>${pLines.map(l => mdInline(mdEsc(l))).join('<br>')}</p>`);
+  }
+  return `<div class="md-content">${out.join('')}</div>`;
+}
+
+// ── HTML helpers ─────────────────────────────────────────────────────────────
+function e(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function badge(text, cls) { return `<span class="badge badge-${cls}">${e(text)}</span>`; }
+
+function tile(label, val) {
+  return `<div class="field-tile"><div class="field-tile-label">${e(label)}</div><div class="field-tile-val">${val}</div></div>`;
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderRequest(req, body) {
+  const hs = req.headers || [];
+  const auth = hdr(hs, 'Authorization');
+  const maskedAuth = auth ? `Bearer ···${auth.slice(-6)}` : '—';
+
+  const kvRows = [
+    ['Authorization',    maskedAuth],
+    ['anthropic-version', hdr(hs, 'anthropic-version') || '—'],
+    ['anthropic-beta',    hdr(hs, 'anthropic-beta')    || '—'],
+    ['Content-Type',      hdr(hs, 'Content-Type')      || '—'],
+    ['User-Agent',        hdr(hs, 'User-Agent')        || '—'],
+  ].map(([k,v]) => `<tr><td>${e(k)}</td><td>${e(v)}</td></tr>`).join('');
+
+  let bodyHtml = '';
+  if (body) {
+    const streamBadge = body.stream ? badge('streaming','amber') : badge('non-streaming','gray');
+    const thinkingHtml = body.thinking
+      ? tile('Thinking', `${e(body.thinking.type)}${body.thinking.budget_tokens != null ? ' / ' + e(body.thinking.budget_tokens) + ' tok' : ''}`)
+      : '';
+
+    bodyHtml = `
+      <div class="sublabel gap-top">Body</div>
+      <div class="field-grid">
+        ${tile('Model',      e(body.model || '—'))}
+        ${tile('Max Tokens', e(body.max_tokens ?? '—'))}
+        ${tile('Stream',     streamBadge)}
+        ${thinkingHtml}
+      </div>`;
+
+    if (body.system?.length) {
+      bodyHtml += `<div class="sublabel gap-top">System</div>`;
+      body.system.forEach((blk, i) => {
+        const preview = (blk.text || '').slice(0, 72).replace(/\n/g,' ');
+        const cc = blk.cache_control ? ` · ${blk.cache_control.type}${blk.cache_control.ttl ? '/' + blk.cache_control.ttl : ''}` : '';
+        bodyHtml += `
+          <div class="collapsible open" id="sys${i}">
+            <div class="collapsible-hd" onclick="tog('sys${i}')">
+              <span class="chev">▶</span>
+              <span>Block ${i+1}${e(cc)} — ${e(preview)}${blk.text?.length > 72 ? '…' : ''}</span>
+            </div>
+            <div class="collapsible-bd">${blk.text != null ? renderMd(blk.text) : e(JSON.stringify(blk, null, 2))}</div>
+          </div>`;
+      });
+    }
+
+    if (body.messages?.length) {
+      bodyHtml += `<div class="sublabel gap-top">Messages</div><div class="msg-list">`;
+      body.messages.forEach((msg, mi) => {
+        const role = msg.role || 'user';
+        const text = typeof msg.content === 'string'
+          ? msg.content
+          : Array.isArray(msg.content)
+            ? msg.content.map(b => b.text || b.thinking || JSON.stringify(b)).join('\n')
+            : JSON.stringify(msg.content, null, 2);
+        const mid = `msg-${Date.now()}-${mi}`;
+        bodyHtml += `
+          <div class="msg-card open" id="${mid}">
+            <div class="msg-head ${e(role)}" onclick="tog('${mid}')">
+              <span class="chev">▶</span>
+              <span class="role-tag ${e(role)}">${e(role)}</span>
+            </div>
+            <div class="msg-body">${renderMd(text)}</div>
+          </div>`;
+      });
+      bodyHtml += `</div>`;
+    }
+  }
+
+  return `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Request</span></div>
+      <div class="card-body">
+        <div class="url-row">
+          <span class="method-pill">${e(req.method)}</span>
+          <span class="url-val">${e(req.url)}</span>
+        </div>
+        <div class="sublabel">Headers</div>
+        <table class="kv">${kvRows}</table>
+        ${bodyHtml}
+      </div>
+    </div>`;
+}
+
+function renderResponse(res, body, streaming) {
+  const hs   = res.headers || [];
+  const reqId = hdr(hs, 'request-id') || '—';
+  const orgId = hdr(hs, 'anthropic-organization-id') || '—';
+
+  function getPct(h) {
+    const v = hdr(hs, h);
+    return v != null ? Math.round(parseFloat(v) * 100) : null;
+  }
+
+  const p5h = getPct('anthropic-ratelimit-unified-5h-utilization');
+  const p7d = getPct('anthropic-ratelimit-unified-7d-utilization');
+  const pOv = getPct('anthropic-ratelimit-unified-overage-utilization');
+
+  function fillCls(p) { return p >= 90 ? 'danger' : p >= 70 ? 'warn' : ''; }
+
+  function rlRow(label, p) {
+    if (p == null) return '';
+    return `<div class="rl-row">
+      <span class="rl-lbl">${e(label)}</span>
+      <div class="rl-track"><div class="rl-fill ${fillCls(p)}" style="width:${Math.min(p,100)}%"></div></div>
+      <span class="rl-pct">${p}%</span>
+    </div>`;
+  }
+
+  const rlHtml = (p5h != null || p7d != null || pOv != null) ? `
+    <div class="sublabel gap-top">Rate Limits</div>
+    <div class="rl-grid">
+      ${rlRow('5 h', p5h)}
+      ${rlRow('7 d', p7d)}
+      ${rlRow('overage', pOv)}
+    </div>` : '';
+
+  const kvRows = [
+    ['request-id', reqId],
+    ['anthropic-organization-id', orgId],
+  ].map(([k,v]) => `<tr><td>${e(k)}</td><td>${e(v)}</td></tr>`).join('');
+
+  let bodyHtml = '';
+  if (body) {
+    const stopCls = { end_turn: 'green', max_tokens: 'amber', stop_sequence: 'blue' }[body.stop_reason] || 'gray';
+
+    bodyHtml = `
+      <div class="sublabel gap-top">Message</div>
+      <div class="field-grid">
+        ${tile('ID',    e(body.id || '—'))}
+        ${tile('Model', e(body.model || '—'))}
+        ${tile('Stop',  body.stop_reason ? badge(body.stop_reason, stopCls) : '—')}
+        ${streaming ? tile('Mode', badge('SSE stream','amber')) : ''}
+      </div>`;
+
+    if (body.content?.length) {
+      bodyHtml += `<div class="sublabel gap-top">Content</div>`;
+      body.content.forEach(blk => {
+        const isThinking = blk.type === 'thinking';
+        const txt = blk.text || blk.thinking || JSON.stringify(blk, null, 2);
+        // Render markdown for text blocks; keep thinking/other as pre-wrap
+        const txtHtml = (!isThinking && blk.text != null) ? renderMd(txt) : highlightXml(e(txt));
+        bodyHtml += `
+          <div class="cb${isThinking ? ' thinking' : ''}">
+            <div class="cb-head"><span class="cb-type">${e(blk.type)}</span></div>
+            <div class="cb-text">${txtHtml}</div>
+          </div>`;
+      });
+    }
+
+    if (body.usage) {
+      const u = body.usage;
+      const nums = [
+        ['Input',       u.input_tokens],
+        ['Output',      u.output_tokens],
+        ['Cache Write', u.cache_creation_input_tokens],
+        ['Cache Read',  u.cache_read_input_tokens],
+      ].filter(([,v]) => v != null);
+
+      const meta = [
+        ['service_tier', u.service_tier],
+        ['inference_geo', u.inference_geo],
+      ].filter(([,v]) => v != null);
+
+      bodyHtml += `<div class="sublabel gap-top">Usage</div><div class="usage-grid">`;
+      nums.forEach(([l,v]) => {
+        bodyHtml += `<div class="usage-tile"><div class="usage-tile-lbl">${e(l)}</div><div class="usage-tile-val">${e(v)}</div></div>`;
+      });
+      bodyHtml += `</div>`;
+
+      if (meta.length) {
+        bodyHtml += `<table class="kv" style="margin-top:10px">`;
+        meta.forEach(([k,v]) => bodyHtml += `<tr><td>${e(k)}</td><td>${e(v)}</td></tr>`);
+        bodyHtml += `</table>`;
+      }
+    }
+
+    if (body.context_management) {
+      const edits = body.context_management.applied_edits || [];
+      bodyHtml += `<div class="sublabel gap-top">Context Management</div>`;
+      bodyHtml += edits.length === 0
+        ? `<span class="muted">No applied edits</span>`
+        : `<div class="cb"><div class="cb-text">${e(JSON.stringify(edits, null, 2))}</div></div>`;
+    }
+  }
+
+  return `
+    <div class="card">
+      <div class="card-head"><span class="card-title">Response</span></div>
+      <div class="card-body">
+        <div class="status-row">
+          <span class="status-code">${e(res.status)}</span>
+          <span class="status-label">${e(res.statusText || 'OK')}</span>
+          ${streaming ? badge('SSE','amber') : ''}
+        </div>
+        <div class="sublabel">Headers</div>
+        <table class="kv">${kvRows}</table>
+        ${rlHtml}
+        ${bodyHtml}
+      </div>
+    </div>`;
+}
+
+function renderHar(h) {
+  const entries = h.log.entries.filter(e => e.request?.url?.includes('/v1/messages'));
+  let html = '';
+  entries.forEach((entry, i) => {
+    if (entries.length > 1) html += `<div class="entry-sep">Entry ${i+1} of ${entries.length}</div>`;
+    const { req, reqBody, res, resBody, streaming } = extractEntry(entry);
+    html += renderRequest(req, reqBody);
+    html += renderResponse(res, resBody, streaming);
+  });
+  document.getElementById('rendered').innerHTML = html;
+}
+
+function tog(id) { document.getElementById(id).classList.toggle('open'); }
+
+// ── Drag-and-drop ────────────────────────────────────────────────────────────
+const ta = document.getElementById('sta');
+
+ta.addEventListener('dragover', e => {
+  e.preventDefault();
+  ta.classList.add('drag-over');
+});
+
+ta.addEventListener('dragleave', () => ta.classList.remove('drag-over'));
+
+ta.addEventListener('drop', e => {
+  e.preventDefault();
+  ta.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    ta.value = ev.target.result;
+    clearTimeout(debTimer);
+    validate();
+  };
+  reader.readAsText(file, 'utf-8');
+});
+</script>
+</body>
+</html>
