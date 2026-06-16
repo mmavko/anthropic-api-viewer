@@ -212,6 +212,7 @@
     .source-ta:focus          { border-color: var(--accent); }
     .source-ta.ok             { border-color: var(--success); }
     .source-ta.error          { border-color: var(--error); }
+    .source-ta.drag-over      { border-color: var(--accent); background: var(--accent-light); }
     .source-ta::placeholder   { color: var(--text-3); }
 
     /* ── Rendered panel ── */
@@ -1063,6 +1064,30 @@ function renderHar(h) {
 }
 
 function tog(id) { document.getElementById(id).classList.toggle('open'); }
+
+// ── Drag-and-drop ────────────────────────────────────────────────────────────
+const ta = document.getElementById('sta');
+
+ta.addEventListener('dragover', e => {
+  e.preventDefault();
+  ta.classList.add('drag-over');
+});
+
+ta.addEventListener('dragleave', () => ta.classList.remove('drag-over'));
+
+ta.addEventListener('drop', e => {
+  e.preventDefault();
+  ta.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    ta.value = ev.target.result;
+    clearTimeout(debTimer);
+    validate();
+  };
+  reader.readAsText(file, 'utf-8');
+});
 </script>
 </body>
 </html>
