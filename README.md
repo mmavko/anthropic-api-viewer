@@ -39,8 +39,4 @@ GitHub Pages is configured to serve from the `docs/` folder on the `main` branch
 
 ## Helper scripts
 
-See `ref/tools.md` for usage. All scripts are in `tools/` and work with HAR files in `data/`.
-
-- **`get_request_body.py`** — prints the request body as formatted JSON
-- **`get_response_body.py`** — prints the response body; assembles SSE streams automatically
-- **`validate.py`** — validates HAR files against the schema in `ref/SCHEMA.md`
+See `ref/tools.md` for usage.
