@@ -782,6 +782,7 @@ function switchTab(name) {
 
 // ── Source / validation ─────────────────────────────────────────────────────
 function onInput() {
+  localStorage.setItem('har-source', document.getElementById('sta').value);
   clearTimeout(debTimer);
   debTimer = setTimeout(validate, 300);
 }
@@ -1225,11 +1226,16 @@ ta.addEventListener('drop', e => {
   const reader = new FileReader();
   reader.onload = ev => {
     ta.value = ev.target.result;
+    localStorage.setItem('har-source', ta.value);
     clearTimeout(debTimer);
     validate();
   };
   reader.readAsText(file, 'utf-8');
 });
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+const saved = localStorage.getItem('har-source');
+if (saved) { ta.value = saved; validate(); }
 </script>
 </body>
 </html>
